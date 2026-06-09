@@ -42,7 +42,10 @@ export function buildResult(
     warning.status === "mismatch"
   ) {
     verdict = "fail";
-  } else if (fields.some((f) => f.status === "review")) {
+  } else if (
+    fields.some((f) => f.status === "review") ||
+    warning.status === "review"
+  ) {
     verdict = "review";
   }
 
@@ -53,5 +56,6 @@ export function buildResult(
     imageNotes: extraction.imageNotes,
     fields,
     warning,
+    extracted: extraction.extracted,
   };
 }

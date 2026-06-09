@@ -44,7 +44,19 @@ export default function SingleLabelPage() {
     setError("");
     setResult(null);
     try {
-      setResult(await verifyLabel(image, app));
+      const r = await verifyLabel(image, app);
+      setResult(r);
+      // Auto-fill the form with what the AI read off the label, so the agent
+      // can review and correct the extracted values in place.
+      setApp({
+        beverageType: r.beverageType === "unknown" ? app.beverageType : r.beverageType,
+        brandName: r.extracted.brandName ?? "",
+        classType: r.extracted.classType ?? "",
+        alcoholContent: r.extracted.alcoholContent ?? "",
+        netContents: r.extracted.netContents ?? "",
+        producerNameAddress: r.extracted.producerNameAddress ?? "",
+        countryOfOrigin: r.extracted.countryOfOrigin ?? "",
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed.");
     } finally {
@@ -52,19 +64,15 @@ export default function SingleLabelPage() {
     }
   }
 
-  // Clear the photo + result so the next label can be dropped in. The form
-  // values are kept by default (often the same importer/brand), with a
-  // separate action to wipe them for a brand-new application.
+  // Reset to a clean slate for the next application: clear the photo, the
+  // result, and the form (which now holds the last label's scanned values).
   function nextLabel() {
     setImage(null);
     setFileName("");
     setResult(null);
     setError("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function clearForm() {
     setApp({ beverageType: "spirits" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -74,8 +82,9 @@ export default function SingleLabelPage() {
         <div>
           <h1 className="text-2xl font-bold">Verify a label</h1>
           <p className="text-slate-600">
-            Enter the application details, add the label photo, then press
-            Verify.
+            Enter the application details to check against, add the label photo,
+            then press Verify. Fields you leave blank will be filled in from
+            what the AI reads on the label.
           </p>
         </div>
 
@@ -176,15 +185,9 @@ export default function SingleLabelPage() {
               >
                 ▶ Verify another label
               </button>
-              <button
-                onClick={clearForm}
-                className="rounded-lg border border-slate-300 px-4 py-3 font-semibold text-ink hover:bg-slate-50"
-              >
-                Clear form fields
-              </button>
               <span className="text-sm text-slate-500 sm:ml-1">
-                “Verify another label” keeps your entries and clears the photo
-                for the next one.
+                The form above now shows what the AI read off this label. Start
+                the next one when you’re ready.
               </span>
             </div>
 

@@ -68,15 +68,31 @@ export function verifyWarning(
     }
   });
 
-  // 4. Legibility / type-size concern flagged by the model.
+  // Items 1–3 above are hard compliance failures (wrong wording / heading).
+  const hardFailures = issues.length;
+
+  // 4. Legibility / type-size is a soft concern: it warrants a human look at
+  //    the type size, but isn't an automatic rejection on its own.
   if (gw.legibilityConcern) {
     issues.push(
       "The warning text may be too small or hard to read — verify type size meets requirements.",
     );
   }
 
-  const status: WarningResult["status"] =
-    issues.length === 0 ? "match" : "mismatch";
+  let status: WarningResult["status"];
+  let note: string;
+  if (hardFailures > 0) {
+    status = "mismatch";
+    note = "Government Warning has compliance issues — see details.";
+  } else if (gw.legibilityConcern) {
+    status = "review";
+    note =
+      "Wording and formatting look correct, but the type size should be confirmed by a reviewer.";
+  } else {
+    status = "match";
+    note =
+      "Government Warning is present and matches the required wording and formatting.";
+  }
 
   return {
     present: true,
@@ -86,9 +102,6 @@ export function verifyWarning(
     prefixBold: gw.prefixBold,
     legibilityConcern: gw.legibilityConcern,
     issues,
-    note:
-      status === "match"
-        ? "Government Warning is present and matches the required wording and formatting."
-        : "Government Warning has compliance issues — see details.",
+    note,
   };
 }

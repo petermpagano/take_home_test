@@ -21,6 +21,28 @@ const OUTPUT_SCHEMA = {
       description:
         "Brief note on image quality (angle, glare, blur). Empty string if the image is clean.",
     },
+    extracted: {
+      type: "object",
+      additionalProperties: false,
+      description:
+        "What you read off the label for each standard field, verbatim. null if the field is absent. Always fill this in regardless of which expected values were provided.",
+      properties: {
+        brandName: { type: ["string", "null"] },
+        classType: { type: ["string", "null"] },
+        alcoholContent: { type: ["string", "null"] },
+        netContents: { type: ["string", "null"] },
+        producerNameAddress: { type: ["string", "null"] },
+        countryOfOrigin: { type: ["string", "null"] },
+      },
+      required: [
+        "brandName",
+        "classType",
+        "alcoholContent",
+        "netContents",
+        "producerNameAddress",
+        "countryOfOrigin",
+      ],
+    },
     comparisons: {
       type: "array",
       items: {
@@ -62,6 +84,7 @@ const OUTPUT_SCHEMA = {
     "beverageType",
     "imageReadable",
     "imageNotes",
+    "extracted",
     "comparisons",
     "governmentWarning",
   ],
@@ -79,6 +102,8 @@ The photo may be imperfect — taken at an angle, with glare, or under poor ligh
 
 EXPECTED APPLICATION VALUES (compare each against what the label shows):
 ${provided.length ? provided.join("\n") : "  (none provided — extraction only)"}
+
+Always fill in "extracted" with what the label shows for every standard field (brandName, classType, alcoholContent, netContents, producerNameAddress, countryOfOrigin) — verbatim, or null if absent — regardless of which expected values were provided.
 
 For EACH expected field above, output one entry in "comparisons" using the same "key". Set "found" to the exact text read from the label (or null if that field is absent), and set "status":
   - "match"      → the same information. Use JUDGMENT: ignore case, punctuation, spacing, and obviously-equivalent wording (e.g. "STONE'S THROW" vs "Stone's Throw" is a match; "750 mL" vs "750ML" is a match). Explain briefly in "note".

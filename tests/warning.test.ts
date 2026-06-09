@@ -82,9 +82,18 @@ describe("verifyWarning", () => {
     expect(r.status).toBe("match");
   });
 
-  it("flags a legibility concern", () => {
+  it("flags a legibility concern as review, not a hard fail", () => {
     const r = verifyWarning({ ...compliant, legibilityConcern: true });
-    expect(r.status).toBe("mismatch");
+    expect(r.status).toBe("review");
     expect(r.issues.join(" ")).toMatch(/small|hard to read/i);
+  });
+
+  it("still fails on a hard issue even with a legibility concern", () => {
+    const r = verifyWarning({
+      ...compliant,
+      prefixBold: false,
+      legibilityConcern: true,
+    });
+    expect(r.status).toBe("mismatch");
   });
 });

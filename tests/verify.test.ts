@@ -14,6 +14,14 @@ function extraction(over: Partial<ModelExtraction> = {}): ModelExtraction {
     beverageType: "spirits",
     imageReadable: true,
     imageNotes: "",
+    extracted: {
+      brandName: "OLD TOM DISTILLERY",
+      classType: "Kentucky Straight Bourbon Whiskey",
+      alcoholContent: "45% Alc./Vol. (90 Proof)",
+      netContents: "750 mL",
+      producerNameAddress: null,
+      countryOfOrigin: null,
+    },
     comparisons: [
       {
         key: "brandName",

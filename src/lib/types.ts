@@ -39,6 +39,16 @@ export interface WarningResult {
 
 export type OverallVerdict = "pass" | "review" | "fail";
 
+/** The model's reading of each standard field off the label (verbatim, null if absent). */
+export interface ExtractedFields {
+  brandName: string | null;
+  classType: string | null;
+  alcoholContent: string | null;
+  netContents: string | null;
+  producerNameAddress: string | null;
+  countryOfOrigin: string | null;
+}
+
 export interface VerificationResult {
   verdict: OverallVerdict;
   beverageType: BeverageType;
@@ -46,6 +56,8 @@ export interface VerificationResult {
   imageNotes: string;
   fields: FieldComparison[];
   warning: WarningResult;
+  /** What the AI read off the label, for each standard field (used to auto-fill the form). */
+  extracted: ExtractedFields;
   /** Server-side processing time in milliseconds (proves the speed target). */
   elapsedMs: number;
   model: string;
@@ -56,6 +68,7 @@ export interface ModelExtraction {
   beverageType: BeverageType;
   imageReadable: boolean;
   imageNotes: string;
+  extracted: ExtractedFields;
   comparisons: {
     key: string;
     expected: string;
