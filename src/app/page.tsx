@@ -52,6 +52,21 @@ export default function SingleLabelPage() {
     }
   }
 
+  // Clear the photo + result so the next label can be dropped in. The form
+  // values are kept by default (often the same importer/brand), with a
+  // separate action to wipe them for a brand-new application.
+  function nextLabel() {
+    setImage(null);
+    setFileName("");
+    setResult(null);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function clearForm() {
+    setApp({ beverageType: "spirits" });
+  }
+
   return (
     <div className="grid gap-8 md:grid-cols-2">
       {/* Left: inputs */}
@@ -133,13 +148,17 @@ export default function SingleLabelPage() {
           )}
         </div>
 
-        <button
-          onClick={onVerify}
-          disabled={!image || busy}
-          className="w-full rounded-lg bg-agency px-6 py-4 text-xl font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          {busy ? "Verifying…" : "Verify label"}
-        </button>
+        {/* The Verify button is shown until a result comes back; once a
+            result is on screen, the primary action becomes "next label". */}
+        {!result && (
+          <button
+            onClick={onVerify}
+            disabled={!image || busy}
+            className="w-full rounded-lg bg-agency px-6 py-4 text-xl font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {busy ? "Verifying…" : "Verify label"}
+          </button>
+        )}
 
         {error && (
           <p className="rounded-md bg-red-50 px-4 py-3 text-red-800">{error}</p>
@@ -148,6 +167,27 @@ export default function SingleLabelPage() {
         {result && (
           <div className="space-y-4">
             <VerdictBanner verdict={result.verdict} elapsedMs={result.elapsedMs} />
+
+            {/* Clear next-step guidance so the agent is never stuck. */}
+            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-center">
+              <button
+                onClick={nextLabel}
+                className="rounded-lg bg-agency px-5 py-3 text-lg font-bold text-white hover:bg-blue-800"
+              >
+                ▶ Verify another label
+              </button>
+              <button
+                onClick={clearForm}
+                className="rounded-lg border border-slate-300 px-4 py-3 font-semibold text-ink hover:bg-slate-50"
+              >
+                Clear form fields
+              </button>
+              <span className="text-sm text-slate-500 sm:ml-1">
+                “Verify another label” keeps your entries and clears the photo
+                for the next one.
+              </span>
+            </div>
+
             <ResultDetail result={result} />
           </div>
         )}
