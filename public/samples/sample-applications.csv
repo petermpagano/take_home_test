@@ -1,0 +1,5 @@
+filename,beverageType,brandName,classType,alcoholContent,netContents,producerNameAddress,countryOfOrigin
+good-bourbon.png,spirits,Old Tom Distillery,Kentucky Straight Bourbon Whiskey,45% Alc./Vol. (90 Proof),750 mL,"Bottled by Old Tom Distillery, Bardstown, KY",
+bad-warning-titlecase.png,spirits,Riverbend Reserve,Tennessee Whiskey,40% Alc./Vol. (80 Proof),750 mL,"Distilled & bottled by Riverbend, Lynchburg, TN",
+abv-mismatch.png,spirits,Old Tom Distillery,Kentucky Straight Bourbon Whiskey,45% Alc./Vol. (90 Proof),750 mL,"Bottled by Old Tom Distillery, Bardstown, KY",
+missing-warning.png,wine,Sunset Cellars,Napa Valley Cabernet Sauvignon,13.5% Alc./Vol.,750 mL,"Produced & bottled by Sunset Cellars, Napa, CA",
