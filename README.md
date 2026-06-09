@@ -72,6 +72,7 @@ After `npm run generate:samples`, four test labels appear in
 | `abv-mismatch.png` | **FAIL** — label shows 50% but the application says 45% |
 | `bad-warning-titlecase.png` | **FAIL** — "Government Warning:" is title case, not ALL CAPS/bold |
 | `missing-warning.png` | **FAIL** — no government warning present |
+| `degraded-bourbon.jpg` | **REVIEW** — a deliberately bad photo (dark, blurred, rotated, glare, heavy compression); the AI still reads every field and flags it for a human look |
 
 In **Single Label** mode, fill the form from a CSV row and upload the matching
 image. In **Batch** mode, select all four images and the CSV at once.
@@ -165,8 +166,27 @@ tests/                    Vitest unit tests
   the `VisionProvider` interface is the seam: drop in an Azure-hosted or on-prem
   vision model behind the same interface and nothing else changes. This is a
   documented limitation, not an oversight.
-- **No data is persisted.** Images are processed in memory and not stored,
-  matching Marcus's "don't store anything sensitive" guidance for the exercise.
+- **No database / no persistence — by design.** Verification is a pure
+  function (image + expected values → verdict), so the app is stateless:
+  images and application data are processed in memory for the request and never
+  written to disk or a database. This is a deliberate decision, not a missing
+  feature — it directly follows Marcus's guidance ("for a prototype, don't do
+  anything crazy; we're not storing anything sensitive") and avoids creating a
+  system of record that would trigger the PII, document-retention, and federal
+  compliance obligations he flagged for production. Batch results live in the
+  browser and export to CSV, so agents keep what they need without us retaining
+  anything. A production system would add a database *together with* that
+  compliance work (decision audit trail, retention rules) — which is exactly
+  why it belongs after the prototype.
+- **Imperfect photos are handled.** Using a vision model (rather than the
+  rigid OCR the prior vendor used) means angled, dark, blurry, glare-affected,
+  and low-resolution photos are usually still readable. Run
+  `npx tsx scripts/degrade-test.ts` to see it: a clean label is rotated,
+  darkened, blurred, given glare, and JPEG-crushed, and the model still reads
+  every field — flagging the quality and returning **NEEDS REVIEW** rather than
+  failing. Only when a label genuinely can't be read does it return
+  unreadable and ask for a better photo (the current manual fallback). Type-size
+  legibility is surfaced as a review flag, not an automatic rejection.
 - **`not_found` for a provided field is treated as FAIL.** If the agent entered
   an expected value and it isn't on the label, that's a real discrepancy. Easy
   to relax to "review" if policy prefers.
