@@ -1,9 +1,11 @@
 /**
- * Demonstrates robustness to imperfect photos (Jenny's ask): takes a clean
- * sample label, degrades it (rotation, low light, blur, glare, JPEG
- * compression), and runs it through the real vision provider.
- * Writes the degraded image to public/samples/degraded-bourbon.jpg so it can
- * also be tried in the app.
+ * Demonstrates robustness to imperfect photos (Jenny's ask) AND the graceful
+ * "request a better photo" fallback. Generates two degraded versions of a
+ * clean label — one rough-but-readable, one genuinely unreadable — and runs
+ * each through the real vision provider.
+ *
+ * Writes both to public/samples/ so they can be tried in the app.
+ *   npx tsx scripts/degrade-test.ts
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,55 +29,74 @@ const app: ApplicationData = {
   netContents: "750 mL",
 };
 
-async function main() {
-  const src = join(SAMPLES, "good-bourbon.png");
-
-  // Glare: a bright off-center radial highlight, like a reflection on glass.
-  const glare = Buffer.from(
+function glareSvg(): Buffer {
+  return Buffer.from(
     `<svg width="600" height="800"><defs><radialGradient id="g" cx="38%" cy="28%" r="45%">` +
-      `<stop offset="0%" stop-color="white" stop-opacity="0.9"/>` +
+      `<stop offset="0%" stop-color="white" stop-opacity="0.95"/>` +
       `<stop offset="100%" stop-color="white" stop-opacity="0"/></radialGradient></defs>` +
       `<rect width="600" height="800" fill="url(#g)"/></svg>`,
   );
+}
 
+interface Degradation {
+  brightness: number;
+  blur: number;
+  rotate: number;
+  resize: number;
+  quality: number;
+}
+
+async function degrade(src: string, d: Degradation): Promise<Buffer> {
   const glared = await sharp(src)
-    .composite([{ input: glare, blend: "screen" }])
+    .composite([{ input: glareSvg(), blend: "screen" }])
     .toBuffer();
-
-  // Then: dim lighting, slight blur, off-axis rotation, downscale, low-quality JPEG.
-  const degraded = await sharp(glared)
-    .modulate({ brightness: 0.6 }) // poor lighting
-    .blur(1.6) // soft focus
-    .rotate(9, { background: { r: 30, g: 30, b: 30 } }) // weird angle
-    .resize(520) // small phone capture
-    .jpeg({ quality: 42 }) // compression artifacts
+  return sharp(glared)
+    .modulate({ brightness: d.brightness })
+    .blur(d.blur)
+    .rotate(d.rotate, { background: { r: 20, g: 20, b: 20 } })
+    .resize(d.resize)
+    .jpeg({ quality: d.quality })
     .toBuffer();
+}
 
-  writeFileSync(join(SAMPLES, "degraded-bourbon.jpg"), degraded);
-  console.log("Wrote public/samples/degraded-bourbon.jpg\n");
-
+async function run(label: string, file: string, buf: Buffer) {
+  writeFileSync(join(SAMPLES, file), buf);
   const provider = new AnthropicProvider();
   const t0 = Date.now();
-  const extraction = await provider.extract(
-    { data: degraded.toString("base64"), mediaType: "image/jpeg" },
+  const result = buildResult(
+    await provider.extract({ data: buf.toString("base64"), mediaType: "image/jpeg" }, app),
     app,
   );
-  const result = buildResult(extraction, app);
   const ms = Date.now() - t0;
-
-  console.log(`Model: ${provider.model}   (${ms}ms)`);
+  console.log(`\n=== ${label}  (${file}, ${(buf.length / 1024) | 0} KB, ${ms}ms) ===`);
   console.log(`imageReadable: ${result.imageReadable}`);
-  console.log(`imageNotes: ${result.imageNotes || "(none)"}`);
-  console.log(`verdict: ${result.verdict.toUpperCase()}\n`);
-  console.log("Read off the degraded label:");
-  for (const [k, v] of Object.entries(result.extracted)) {
-    console.log(`  ${k.padEnd(20)} ${v ?? "(not found)"}`);
+  console.log(`verdict:       ${result.verdict.toUpperCase()}`);
+  console.log(`imageNotes:    ${result.imageNotes || "(none)"}`);
+  if (result.imageReadable) {
+    console.log("read:", Object.entries(result.extracted)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" | "));
+  } else {
+    console.log("→ app shows: “The label image could not be read clearly. " +
+      "Please request a better photo.”");
   }
-  console.log("\nField checks:");
-  for (const f of result.fields) {
-    console.log(`  ${f.field.padEnd(22)} ${f.status}`);
-  }
-  console.log(`\nGovernment Warning: ${result.warning.status}`);
+}
+
+async function main() {
+  const src = join(SAMPLES, "good-bourbon.png");
+
+  await run(
+    "ROUGH BUT READABLE",
+    "degraded-bourbon.jpg",
+    await degrade(src, { brightness: 0.6, blur: 1.6, rotate: 9, resize: 520, quality: 42 }),
+  );
+
+  await run(
+    "TOO FAR GONE",
+    "unreadable-bourbon.jpg",
+    await degrade(src, { brightness: 0.22, blur: 7, rotate: 22, resize: 150, quality: 12 }),
+  );
 }
 
 main().catch((e) => {

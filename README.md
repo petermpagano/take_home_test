@@ -37,7 +37,7 @@ Two modes:
 | **Judgment, not brittle matching** — "STONE'S THROW" vs "Stone's Throw" (Dave) | The model compares with judgment and explains each verdict; case/punctuation/obvious-equivalent differences are a match, with a note. |
 | **The warning is exact** — title case got one rejected (Jenny) | A deterministic rule (not the model's opinion) checks the exact §16.21 wording and the ALL-CAPS, bold heading. |
 | **Imperfect photos** — angles, glare (Jenny) | Vision models read angled/glare images well; if a label truly can't be read, the result says so and asks for a better photo. |
-| **Locked-down federal network / cloud APIs blocked** (Marcus) | The AI backend sits behind a `VisionProvider` interface, so it can be swapped for an on-prem / Azure-hosted model without touching the app. (See Trade-offs.) |
+| **Locked-down federal network / cloud APIs blocked** (Marcus) | The browser only talks to the app's own domain; the ML endpoint is called server-side, off the agent's network — so blocked ML endpoints don't break it. No third-party resources load. The AI also sits behind a `VisionProvider` interface for an on-prem/Azure swap. (See "Network & firewall".) |
 
 ---
 
@@ -140,6 +140,31 @@ tests/                    Vitest unit tests
 ```
 
 ---
+
+## Network & firewall (why the agent's blocked ML endpoints don't matter)
+
+Marcus's warning — *"our network blocks outbound traffic to a lot of domains... half the [vendor's] features didn't work because our firewall blocked connections to their ML endpoints"* — is about the **agent's browser** reaching ML endpoints directly. This app is built so that never happens:
+
+```
+Agent's browser ──► the app's own domain ──► (server-side) ──► api.anthropic.com
+  (inside the           (one origin to                 (this hop runs in the
+   federal network)      allowlist)                     cloud, NOT on the
+                                                         agent's network)
+```
+
+- The browser makes **exactly one kind of network call**: a same-origin `POST /api/verify` to the app itself. It never connects to `api.anthropic.com`.
+- The Anthropic call happens **server-side** (in the Next.js API route, running on Vercel/host infrastructure) — outside the locked-down network entirely. So a firewall that blocks ML endpoints doesn't break anything.
+- The app loads **no third-party resources** — no CDN, no Google Fonts, no analytics, no external images (verified). The firewall only needs to allow the **one** app domain.
+- The API key lives **only** on the server (env var), never shipped to the browser.
+
+This is the structural difference from the failed vendor pilot: their client reached the ML endpoint directly (and got blocked); here the agent's network only needs to reach one ordinary web app. For a real federal deployment the app would be hosted on an allowlisted/Azure domain — and because the AI sits behind the `VisionProvider` interface, the server-side hop could even be pointed at an on-prem or Azure-hosted model so **no** traffic leaves the network.
+
+## Handling imperfect photos & enhancement
+
+- **The vision model is robust to bad photos** — angled, dark, blurry, glare, low-resolution all usually read fine (see `scripts/degrade-test.ts`).
+- **Graceful fallback:** when a photo genuinely can't be read, the result is *unreadable* → **FAIL** with "request a better photo" (matching the agents' current manual fallback) rather than a guessed verdict.
+- **One-click enhancement:** if a photo is flagged (unreadable or quality-noted), an **"✨ Enhance photo & re-check"** button re-processes it with brightness/contrast/grayscale adjustment and reads it again — a recovery attempt before the agent gives up. Validate with `scripts/enhance-test.ts`.
+- **Why not "AI-enhance" the image?** Deliberately avoided. Using a *generative* model to clean up a label can **invent or alter text** — it could "enhance" a missing warning into a present one. For a compliance tool that verifies what's actually printed, enhancement must be plain, content-preserving signal processing only.
 
 ## Tools used
 

@@ -11,7 +11,20 @@ export interface PreparedImage {
   mediaType: "image/jpeg";
 }
 
-export async function prepareImage(file: File): Promise<PreparedImage> {
+export interface PrepareOptions {
+  /**
+   * Apply deterministic enhancement (grayscale + contrast + brightness) to
+   * recover an underexposed or low-contrast photo. This is plain signal
+   * processing — it never adds or alters label content, so it's safe for
+   * compliance use (unlike generative "enhancement", which could invent text).
+   */
+  enhance?: boolean;
+}
+
+export async function prepareImage(
+  file: File,
+  opts: PrepareOptions = {},
+): Promise<PreparedImage> {
   const bitmap = await createImageBitmap(file);
 
   const scale = Math.min(
@@ -26,6 +39,11 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get canvas context.");
+  if (opts.enhance) {
+    // Lift exposure and contrast; grayscale removes color casts from bad
+    // lighting/glare. These help the model read marginal photos.
+    ctx.filter = "grayscale(1) contrast(1.5) brightness(1.6)";
+  }
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close?.();
 

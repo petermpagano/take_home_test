@@ -17,34 +17,37 @@ const BEVERAGE_OPTIONS: { value: BeverageType; label: string }[] = [
 export default function SingleLabelPage() {
   const [app, setApp] = useState<ApplicationData>({ beverageType: "spirits" });
   const [image, setImage] = useState<PreparedImage | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [enhanced, setEnhanced] = useState(false);
   const [error, setError] = useState("");
 
   function setField(key: keyof ApplicationData, value: string) {
     setApp((a) => ({ ...a, [key]: value }));
   }
 
-  async function onFile(file: File | undefined) {
-    if (!file) return;
+  async function onFile(f: File | undefined) {
+    if (!f) return;
     setError("");
     setResult(null);
+    setEnhanced(false);
     try {
-      setFileName(file.name);
-      setImage(await prepareImage(file));
+      setFile(f);
+      setFileName(f.name);
+      setImage(await prepareImage(f));
     } catch {
       setError("Could not read that image file. Try a JPG or PNG.");
     }
   }
 
-  async function onVerify() {
-    if (!image) return;
+  async function runVerify(img: PreparedImage) {
     setBusy(true);
     setError("");
     setResult(null);
     try {
-      const r = await verifyLabel(image, app);
+      const r = await verifyLabel(img, app);
       setResult(r);
       // Auto-fill the form with what the AI read off the label, so the agent
       // can review and correct the extracted values in place.
@@ -64,13 +67,30 @@ export default function SingleLabelPage() {
     }
   }
 
+  function onVerify() {
+    if (image) runVerify(image);
+  }
+
+  // Re-process the original photo with brightness/contrast/grayscale and
+  // re-check — a one-click recovery for dark/low-contrast photos before an
+  // agent gives up and requests a new image.
+  async function enhanceAndRetry() {
+    if (!file) return;
+    setEnhanced(true);
+    const img = await prepareImage(file, { enhance: true });
+    setImage(img);
+    await runVerify(img);
+  }
+
   // Reset to a clean slate for the next application: clear the photo, the
   // result, and the form (which now holds the last label's scanned values).
   function nextLabel() {
     setImage(null);
+    setFile(null);
     setFileName("");
     setResult(null);
     setError("");
+    setEnhanced(false);
     setApp({ beverageType: "spirits" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -176,6 +196,29 @@ export default function SingleLabelPage() {
         {result && (
           <div className="space-y-4">
             <VerdictBanner verdict={result.verdict} elapsedMs={result.elapsedMs} />
+
+            {/* Offer a one-click enhancement when the photo was flagged as
+                unreadable or quality-noted, before the agent gives up. */}
+            {!enhanced && (!result.imageReadable || result.imageNotes) && (
+              <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
+                <button
+                  onClick={enhanceAndRetry}
+                  disabled={busy || !file}
+                  className="rounded-lg bg-amber-600 px-5 py-3 font-bold text-white hover:bg-amber-700 disabled:bg-slate-300"
+                >
+                  ✨ Enhance photo &amp; re-check
+                </button>
+                <span className="text-sm text-amber-900 sm:ml-1">
+                  Adjusts brightness &amp; contrast to recover a dark or
+                  low-contrast photo — then reads it again.
+                </span>
+              </div>
+            )}
+            {enhanced && (
+              <p className="text-sm text-slate-500">
+                Showing results after photo enhancement.
+              </p>
+            )}
 
             {/* Clear next-step guidance so the agent is never stuck. */}
             <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-center">
